@@ -9,11 +9,6 @@ load_dotenv(dotenv_path=dotenv_path)
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
 
-def return_api_key():
-    print(gemini_api_key)
-    return gemini_api_key
-
-
 def invoice_processing(path_file):
     prompt = (
         """
@@ -95,7 +90,3 @@ def invoice_processing(path_file):
     except json.JSONDecodeError as e:
         print(f"Error al decodificar la cadena JSON: {e}")
     return response
-
-
-if __name__ == "__main__":
-    return_api_key()
