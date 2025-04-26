@@ -1,3 +1,4 @@
 .env
 venv
 files
+.ipynb_checkpoints
