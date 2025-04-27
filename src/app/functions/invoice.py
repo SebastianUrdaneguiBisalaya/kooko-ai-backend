@@ -90,3 +90,7 @@ def invoice_processing(path_file):
     except json.JSONDecodeError as e:
         print(f"Error al decodificar la cadena JSON: {e}")
     return response
+
+
+def format_money(amount):
+    return f"S/. {amount:,.2f}"

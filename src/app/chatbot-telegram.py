@@ -3,8 +3,8 @@
 
 # Telegram libraries
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton
-from telegram import Update
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
+from telegram.constants import ParseMode
 # Config libraries
 import logging
 import os
@@ -12,7 +12,7 @@ from pathlib import Path
 import tempfile
 from dotenv import load_dotenv
 # Importing functions
-from functions.invoice import invoice_processing
+from functions.invoice import invoice_processing, format_money
 
 # Name of the bot: Dolfin.ai
 # Link of Telegram Bot: https://t.me/DolfinAIBot
@@ -43,9 +43,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     inline_keyboard = [
         [
             InlineKeyboardButton("¿Qué es Dolfin.ai? 🤔",
-                                 callback_data="definition"),
+                                 callback_data="definition")
+        ],
+        [
             InlineKeyboardButton("¿Cómo funciona? 🤔",
                                  callback_data="how-it-works"),
+        ],
+        [
             InlineKeyboardButton("Subir boleta y/o factura 📋",
                                  callback_data="upload-invoice"),
         ]
@@ -70,6 +74,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     elif query.data == "upload-invoice":
         await query.message.reply_text("👨🏻‍💻 Por favor, envíame la imagen de tu boleta y/o factura. Procura que sea nítido.")
         context.user_data["waiting_for"] = 1
+    elif query.data == "confirm-invoice":
+        await query.message.reply_text("✅ ¡Registro confirmado! Puedes visualizarlo en tu panel de control.")
+    elif query.data == "forgot-products":
+        await query.message.reply_text("🛒 Entendido. Por favor, envíanos los productos faltantes o una nueva imagen.")
 
 
 async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -82,7 +90,42 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await file.download_to_drive(local_file_path)
         await update.message.reply_text("👨🏻‍💻 Gracias por enviarme la imagen. Estoy procesando la imagen.")
         proccesing_result = invoice_processing(path_file=local_file_path)
-        await update.message.reply_text(f"La imagen se ha procesado correctamente. 🙌🏻 ${proccesing_result["data"]["id_invoice"]}")
+        processing_data = proccesing_result["data"]
+        print(processing_data)
+        products_info = ""
+        total_amount = 0
+        for product in processing_data["products"]:
+            name = product["product_name"]
+            price = product["unit_price"]
+            quantity = product["quantity"]
+            subtotal = price * quantity
+            total_amount += subtotal
+            products_info += f"\n - {name}: {format_money(price)} x {quantity}u"
+        message_text = (
+            f"Por favor, confirma los siguiente datos para culminar el proceso.\n\n"
+            f"<b>N° Factura:</b> {processing_data["id_invoice"]}\n"
+            f"<b>Fecha de la compra:</b> {processing_data["date"]} - {processing_data["time"]}\n\n"
+            f"<b>Productos:</b> {products_info}\n\n"
+            f"<b>Total:</b> {format_money(total_amount)}"
+        )
+        keyboards = [
+            [
+                InlineKeyboardButton(
+                    "✅ Aceptar", callback_data="confirm-invoice"),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🛒 Olvidaste algunos productos", callback_data="forgot-products"),
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(
+            keyboards,
+        )
+        await update.message.reply_text(
+            message_text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.HTML,
+        )
     except Exception as e:
         await update.message.reply_text(f"⚠️ Ha ocurrido un error al procesar la imagen. 😔")
         print(f"Error al procesar la imagen: {e}")
