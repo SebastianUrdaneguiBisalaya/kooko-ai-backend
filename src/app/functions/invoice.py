@@ -1,10 +1,10 @@
 import os
-import pathlib
+from pathlib import Path
 from dotenv import load_dotenv
 import json
 from google import genai
 
-dotenv_path = pathlib.Path().resolve().parents[1] / ".env"
+dotenv_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 

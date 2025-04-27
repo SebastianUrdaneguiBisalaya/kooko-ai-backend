@@ -1,19 +1,24 @@
 # Creating a Chatbot using Telegram
 # To receive the image from user through a simple message
 
+# Telegram libraries
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackQueryHandler
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 from telegram import Update
+# Config libraries
 import logging
 import os
-import pathlib
+from pathlib import Path
+import tempfile
 from dotenv import load_dotenv
+# Importing functions
+from functions.invoice import invoice_processing
 
 # Name of the bot: Dolfin.ai
 # Link of Telegram Bot: https://t.me/DolfinAIBot
 
 # Config environment variables
-dotenv_path = pathlib.Path().resolve().parents[1] / ".env"
+dotenv_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 
 TELEGRAM_API_KEY = os.getenv("TELEGRAM_BOTFATHER_API_KEY")
@@ -68,13 +73,24 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    photo = update.message.photo[-1]  # Obtener la foto con mayor calidad
+    photo = update.message.photo[-1]  # Get the better photo
     file_id = photo.file_id
     file = await context.bot.get_file(file_id)
-    file_path = file.file_path
-    print(file_id, file_path)
-    await update.message.reply_text(f"👍🏻 ¡Tu boleta y/o factura ha sido recibida! 👍🏻")
-
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+        local_file_path = temp_file.name
+    try:
+        await file.download_to_drive(local_file_path)
+        await update.message.reply_text("👨🏻‍💻 Gracias por enviarme la imagen. Estoy procesando la imagen.")
+        proccesing_result = invoice_processing(path_file=local_file_path)
+        await update.message.reply_text(f"La imagen se ha procesado correctamente. 🙌🏻 ${proccesing_result["data"]["id_invoice"]}")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Ha ocurrido un error al procesar la imagen. 😔")
+        print(f"Error al procesar la imagen: {e}")
+    finally:
+        try:
+            os.remove(local_file_path)
+        except OSError as e:
+            print(f"Error al eliminar el archivo: {e}")
     if "waiting_for" in context.user_data:
         del context.user_data['waiting_for']
 
