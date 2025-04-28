@@ -12,8 +12,8 @@ gemini_api_key = os.getenv("GEMINI_API_KEY")
 def invoice_processing(path_file):
     prompt = (
         """
-        instrucciones: Extrae la información relevante de la imagen de la boleta o factura
-        y retorna solo el objeto JSON con la siguiente estructura:
+        instrucciones: Tú eres el asistente administrativo de una empresa y te solicitan extraer la información relevante de la imagen 
+        de la boleta o factura y debes retornar solo el objeto JSON con la siguiente estructura:
         formato_de_salida: {
             "tipo": "JSON",
             "data": {
