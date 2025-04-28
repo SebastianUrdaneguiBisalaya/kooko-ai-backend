@@ -125,7 +125,7 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"<b>N° Factura:</b> {processing_data["id_invoice"]}\n"
             f"<b>Cliente:</b> {processing_data["client"]["name_client"]} - {processing_data["client"]["id_client"]}\n\n"
             f"<b>Vendedor:</b> {processing_data["seller"]["name_seller"]} - {processing_data["seller"]["id_seller"]}\n\n"
-            f"<b>Fecha de la compra:</b> {processing_data["date"]} - {processing_data["time"]}\n\n"
+            f"<b>Fecha de la compra:</b> {processing_data["date"]}\n\n"
             f"<b>Productos:</b> {products_info}\n\n"
             f"<b>Total de impuestos:</b> {format_money(all_taxes)}\n\n"
             f"<b>Total:</b> {format_money(total_amount)}"
