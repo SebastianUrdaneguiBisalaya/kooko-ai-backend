@@ -120,7 +120,7 @@ def normalize_data(data):
 
 def sum_all_taxes(data):
     total = 0
-    for i, k in data.items():
-        if i != "recorded_operation":
-            total += k
+    for index, value in data.items():
+        if index != "recorded_operation" and value != "":
+            total += value
     return total

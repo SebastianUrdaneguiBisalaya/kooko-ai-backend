@@ -22,7 +22,6 @@ dotenv_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 
 TELEGRAM_API_KEY = os.getenv("TELEGRAM_BOTFATHER_API_KEY")
-print(TELEGRAM_API_KEY)
 
 # Config to improve the method to find errors
 logging.basicConfig(
@@ -40,7 +39,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = user.id
     user_first_name = user.first_name
     user_last_name = user.last_name
-    print(user_id, user_first_name, user_last_name)
     inline_keyboard = [
         [
             InlineKeyboardButton("¿Qué es kooko.ai? 🤔",
@@ -59,7 +57,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         inline_keyboard
     )
     await update.message.reply_html(
-        rf"¡Hola {user_first_name}!",
+        f"¡Hola {user_first_name}!\nPor favor, elige una opción:",
         reply_markup=reply_markup,
         reply_to_message_id=update.message.message_id,
     )
@@ -109,7 +107,6 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         processing_result = invoice_processing(path_file=local_file_path)
         normalize_processing_data = normalize_data(processing_result)
         processing_data = normalize_processing_data["data"]
-        print(processing_data)
         products_info = ""
         total_amount = 0
         all_taxes = sum_all_taxes(processing_data["taxes"])
@@ -128,7 +125,7 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"<b>Fecha de la compra:</b> {processing_data["date"]}\n\n"
             f"<b>Productos:</b> {products_info}\n\n"
             f"<b>Total de impuestos:</b> {format_money(all_taxes)}\n\n"
-            f"<b>Total:</b> {format_money(total_amount)}"
+            f"<b>Total:</b> {format_money(total_amount + all_taxes)}"
         )
         keyboards = [
             [
