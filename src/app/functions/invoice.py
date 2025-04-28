@@ -107,3 +107,11 @@ def normalize_data(data):
         elif value is None:
             data[key] = ""
     return data
+
+
+def sum_all_taxes(data):
+    total = 0
+    for i, k in data.items():
+        if i != "recorded_operation":
+            total += k
+    return total

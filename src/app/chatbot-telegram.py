@@ -12,7 +12,7 @@ from pathlib import Path
 import tempfile
 from dotenv import load_dotenv
 # Importing functions
-from functions.invoice import invoice_processing, format_money, normalize_data
+from functions.invoice import invoice_processing, format_money, normalize_data, sum_all_taxes
 
 # Name of the bot: Dolfin.ai
 # Link of Telegram Bot: https://t.me/DolfinAIBot
@@ -107,11 +107,12 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await file.download_to_drive(local_file_path)
         await update.message.reply_text("👨🏻‍💻 Gracias por enviarme la imagen. Estoy procesando...")
         processing_result = invoice_processing(path_file=local_file_path)
-        normalize_data = normalize_data(processing_result)
-        processing_data = normalize_data["data"]
+        normalize_processing_data = normalize_data(processing_result)
+        processing_data = normalize_processing_data["data"]
         print(processing_data)
         products_info = ""
         total_amount = 0
+        all_taxes = sum_all_taxes(processing_data["taxes"])
         for product in processing_data["products"]:
             name = product["product_name"]
             price = float(product["unit_price"])
@@ -126,7 +127,7 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"<b>Vendedor:</b> {processing_data["seller"]["name_seller"]} - {processing_data["seller"]["id_seller"]}\n\n"
             f"<b>Fecha de la compra:</b> {processing_data["date"]} - {processing_data["time"]}\n\n"
             f"<b>Productos:</b> {products_info}\n\n"
-            f"<b>Total de impuestos:</b> {format_money(total_amount)}\n\n"
+            f"<b>Total de impuestos:</b> {format_money(all_taxes)}\n\n"
             f"<b>Total:</b> {format_money(total_amount)}"
         )
         keyboards = [
