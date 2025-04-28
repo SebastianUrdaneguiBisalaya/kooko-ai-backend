@@ -76,9 +76,25 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await query.message.reply_text("👨🏻‍💻 Por favor, envíame la imagen de tu boleta y/o factura. Procura que sea nítido.")
         context.user_data["waiting_for"] = 1
     elif query.data == "confirm-invoice":
-        await query.message.reply_text("✅ ¡Registro confirmado! Puedes visualizarlo en tu panel de control.")
+        keyboard = [
+            [InlineKeyboardButton(
+                "¿Deseas subir otra factura y/o boleta?", callback_data="send-another-invoice")],
+            [InlineKeyboardButton(
+                "Por el momento, no. Gracias. ✅", callback_data="finish-process")]
+        ]
+        reply_markup = InlineKeyboardMarkup(
+            keyboard
+        )
+        await query.message.reply_text("✅ ¡Registro confirmado! Puedes visualizarlo en tu panel de control.", reply_markup=reply_markup)
+    elif query.data == "send-another-invoice":
+        await query.message.reply_text("👨🏻‍💻 Por favor, envíame la imagen de tu boleta y/o factura. Procura que sea nítido.")
+        context.user_data["waiting_for"] = 1
     elif query.data == "forgot-products":
         await query.message.reply_text("🛒 Entendido. Por favor, envíanos los productos faltantes o una nueva imagen.")
+    elif query.data == "finish-process":
+        await query.message.reply_text("!Gracias por usar nuestro servicio!. Si necesitas digitalizar más boletas o facturas en el futuro, puedes volver a iniciar nuestro sistema con un saludo. 🙌🏻")
+        if "waiting_for" in context.user_data:
+            del context.user_data['waiting_for']
 
 
 async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
