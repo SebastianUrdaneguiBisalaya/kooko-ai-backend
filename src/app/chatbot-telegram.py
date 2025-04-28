@@ -12,7 +12,7 @@ from pathlib import Path
 import tempfile
 from dotenv import load_dotenv
 # Importing functions
-from functions.invoice import invoice_processing, format_money
+from functions.invoice import invoice_processing, format_money, normalize_data
 
 # Name of the bot: Dolfin.ai
 # Link of Telegram Bot: https://t.me/DolfinAIBot
@@ -22,6 +22,7 @@ dotenv_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 
 TELEGRAM_API_KEY = os.getenv("TELEGRAM_BOTFATHER_API_KEY")
+print(TELEGRAM_API_KEY)
 
 # Config to improve the method to find errors
 logging.basicConfig(
@@ -42,7 +43,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     print(user_id, user_first_name, user_last_name)
     inline_keyboard = [
         [
-            InlineKeyboardButton("¿Qué es Dolfin.ai? 🤔",
+            InlineKeyboardButton("¿Qué es kooko.ai? 🤔",
                                  callback_data="definition")
         ],
         [
@@ -68,7 +69,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
     if query.data == "definition":
-        await query.message.reply_text("Dolfin.ai 🚀 es un chatbot que te ayuda a digitalizar tus boletas y/o facturas.")
+        await query.message.reply_text("kooko.ai 🚀 es un chatbot que te ayuda a digitalizar tus boletas y/o facturas.")
     elif query.data == "how-it-works":
         await query.message.reply_html("👉🏻 Debes selecionar la opción de <b>Subir boleta o factura</b>, enviar la imagen y listo.")
     elif query.data == "upload-invoice":
@@ -88,24 +89,28 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         local_file_path = temp_file.name
     try:
         await file.download_to_drive(local_file_path)
-        await update.message.reply_text("👨🏻‍💻 Gracias por enviarme la imagen. Estoy procesando la imagen.")
-        proccesing_result = invoice_processing(path_file=local_file_path)
-        processing_data = proccesing_result["data"]
+        await update.message.reply_text("👨🏻‍💻 Gracias por enviarme la imagen. Estoy procesando...")
+        processing_result = invoice_processing(path_file=local_file_path)
+        normalize_data = normalize_data(processing_result)
+        processing_data = normalize_data["data"]
         print(processing_data)
         products_info = ""
         total_amount = 0
         for product in processing_data["products"]:
             name = product["product_name"]
-            price = product["unit_price"]
-            quantity = product["quantity"]
+            price = float(product["unit_price"])
+            quantity = float(product["quantity"])
             subtotal = price * quantity
             total_amount += subtotal
             products_info += f"\n - {name}: {format_money(price)} x {quantity}u"
         message_text = (
             f"Por favor, confirma los siguiente datos para culminar el proceso.\n\n"
             f"<b>N° Factura:</b> {processing_data["id_invoice"]}\n"
+            f"<b>Cliente:</b> {processing_data["client"]["name_client"]} - {processing_data["client"]["id_client"]}\n\n"
+            f"<b>Vendedor:</b> {processing_data["seller"]["name_seller"]} - {processing_data["seller"]["id_seller"]}\n\n"
             f"<b>Fecha de la compra:</b> {processing_data["date"]} - {processing_data["time"]}\n\n"
             f"<b>Productos:</b> {products_info}\n\n"
+            f"<b>Total de impuestos:</b> {format_money(total_amount)}\n\n"
             f"<b>Total:</b> {format_money(total_amount)}"
         )
         keyboards = [

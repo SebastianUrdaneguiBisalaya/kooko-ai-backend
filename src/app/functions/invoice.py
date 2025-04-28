@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import json
 from google import genai
 
-dotenv_path = Path(__file__).resolve().parent.parent.parent / ".env"
+dotenv_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
@@ -94,3 +94,16 @@ def invoice_processing(path_file):
 
 def format_money(amount):
     return f"S/. {amount:,.2f}"
+
+
+def normalize_data(data):
+    for key, value in data.items():
+        if isinstance(value, dict):
+            normalize_data(value)
+        elif isinstance(value, list):
+            for item in range(0, len(value)):
+                if isinstance(value[item], dict):
+                    normalize_data(value[item])
+        elif value is None:
+            data[key] = ""
+    return data
