@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import json
 from google import genai
 
-dotenv_path = Path(__file__).resolve().parent.parent.parent / ".env"
+dotenv_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 
@@ -12,8 +12,8 @@ gemini_api_key = os.getenv("GEMINI_API_KEY")
 def invoice_processing(path_file):
     prompt = (
         """
-        instrucciones: Extrae la información relevante de la imagen de la boleta o factura
-        y retorna solo el objeto JSON con la siguiente estructura:
+        instrucciones: Tú eres el asistente administrativo de una empresa y te solicitan extraer la información relevante de la imagen 
+        de la boleta o factura y debes retornar solo el objeto JSON con la siguiente estructura:
         formato_de_salida: {
             "tipo": "JSON",
             "data": {
@@ -60,10 +60,19 @@ def invoice_processing(path_file):
         subtotales, impuestos, totales, operaciones grabadas, operaciones inafectas,
         operaciones exoneradas, operaciones de exportación, operación gratuita, total de
         descuento, Impuesto Selectivo al Consumo o I.S.C., Impuesto General a la Ventas o I.G.V.,
-        otros cargos, otros tributos y el importe total. Recuerdad que usualmente el primer nombre e identificación
-        que aparecen en las boletas y/o facturas pertenecen a la empresa o persona vendedora.
+        otros cargos, otros tributos y el importe total. Recuerda que usualmente el primer nombre e identificación conocida como Razón Social
+        o Ruc que aparecen en las boletas o facturas pertenecen a la empresa vendedora.
+        Además, el cliente o empresa que compra el producto y/o servicio también tiene su Razón Social que es su nombre e
+        identificación que puede ser su número de D.N.I. o RUC. Debes verificar que los campos sean correctos para el cliente y la persona
+        o empresa que vende el producto o servicio, respectivamente.
+        Adicionalmente, se incluyen campos como 'Cajero', 'ID Cajero', 'DNI Cajero' o sus sinónimos no corresponden al nombre o identificación de la persona o empresa
+        compradora o vendero, solo representa a la persona encargada de la empresa vendedora que efectúa la transacción.
         Con respecto a la construcción del array de objetos de productos, asegúrate que no se generen
         duplicados en cuanto a los productos, dado que hay veces el nombre es muy largo y ocupa más de una fila.
+        En caso haya ítems de productos sin precio y cantidad, debes tomar en cuenta que estos no son productos, sino
+        subítems que suelen agregarse a los productos principales, cuyos precios y cantidades se encuentran en el mismo
+        objeto de productos. En este caso, debes verificar que el precio y cantidad sean correctos y concatenarlo en el mismo
+        nombre del producto principal.
         """
     )
     client = genai.Client(api_key=gemini_api_key)
@@ -90,3 +99,28 @@ def invoice_processing(path_file):
     except json.JSONDecodeError as e:
         print(f"Error al decodificar la cadena JSON: {e}")
     return response
+
+
+def format_money(amount):
+    return f"S/. {amount:,.2f}"
+
+
+def normalize_data(data):
+    for key, value in data.items():
+        if isinstance(value, dict):
+            normalize_data(value)
+        elif isinstance(value, list):
+            for item in range(0, len(value)):
+                if isinstance(value[item], dict):
+                    normalize_data(value[item])
+        elif value is None:
+            data[key] = ""
+    return data
+
+
+def sum_all_taxes(data):
+    total = 0
+    for index, value in data.items():
+        if index != "recorded_operation" and value != "":
+            total += value
+    return total
