@@ -75,7 +75,7 @@ def insert_invoice_data(
         "discount": invoice_data["taxes"]["discount"] or 0,
         "others_charge": invoice_data["taxes"]["others_charge"] or 0,
         "others_taxes": invoice_data["taxes"]["others_taxes"] or 0,
-        "path_file": f"{supabase_url}/storage/v1/object/{path_file}" or "",
+        "path_file": path_file or "",
     }
     supabase = create_supabase_client()
     response = (
