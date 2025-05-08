@@ -11,9 +11,10 @@ import os
 from pathlib import Path
 import tempfile
 import re
+import httpx
 from dotenv import load_dotenv
 # Importing functions
-from functions.invoice import invoice_processing, format_money, normalize_data, sum_all_taxes
+from functions.invoice import invoice_processing, format_money, sum_all_taxes
 from functions.supabase import verify_user, insert_invoice_data, insert_invoice_detail_data, insert_user_credits_data, upload_file
 
 # Name of the bot: Dolfin.ai
@@ -58,6 +59,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     user_input = update.message.text.strip().lower()
     if context.user_data.get("waiting_for_phone"):
         phone_match = re.fullmatch(r'\+?\d{9,15}', user_input)
+        if "user_phone" in context.user_data:
+            await update.message.reply_text("⚠️ Ya he registrado tu número. Por favor, envíame tu imagen de boleta o factura.")
+            return
         if phone_match:
             context.user_data["user_phone"] = user_input
             del context.user_data["waiting_for_phone"]
@@ -111,7 +115,15 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text("⚠️ Hey, no tengo cómo validar tu identidad.\nPor favor, envíame tu número de celular antes de subir una imagen.")
         return
     user_phone = context.user_data["user_phone"]
-    user_id = verify_user(user_phone=user_phone)
+
+    try:
+        user_id = verify_user(user_phone=user_phone)
+    except httpx.ConnectTimeout:
+        await update.message.reply_text("⚠️ Error de conexión con el servidor. Intenta nuevamente en unos minutos.")
+        return
+    except httpx.RequestError as e:
+        await update.message.reply_text("⚠️ No se pudo conectar con el servidor. Verifica tu conexión a internet.")
+        return
 
     if not user_id:
         await update.message.reply_text("⚠️ El número enviado no está registrado en nuestro sistema. Por favor, envíame un número válido.")
@@ -127,26 +139,31 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await file.download_to_drive(local_file_path)
         await update.message.reply_text("👨🏻‍💻 Gracias por enviarme la imagen. Estoy procesando...")
         processing_result = invoice_processing(path_file=local_file_path)
-        normalize_processing_data = normalize_data(processing_result)
-        processing_data = normalize_processing_data["data"]
+        processing_data = processing_result["data"]
         products_info = ""
         total_amount = 0
         all_taxes = sum_all_taxes(processing_data["taxes"])
         for product in processing_data["products"]:
-            name = product["product_name"]
-            price = float(product["unit_price"])
-            quantity = float(product["quantity"])
+            name = product["product_name"] or ""
+            price = float(product["unit_price"]
+                          ) if product["unit_price"] is not None else 0
+            quantity = float(product["quantity"]
+                             ) if product["quantity"] is not None else 0
             subtotal = price * quantity
             total_amount += subtotal
             products_info += f"\n - {name}: {format_money(price)} x {quantity}u"
-        res_upload_file = upload_file(local_file_path)
+
+        res_upload_file = upload_file(f"{local_file_path}", user_id=user_id)
+
         insert_invoice_data(user_id=user_id,
                             total=total_amount,
                             invoice_data=processing_data,
                             path_file=res_upload_file)
+
         insert_invoice_detail_data(invoice_detail_data=processing_data)
+
         insert_user_credits_data(user_id=user_id,
-                                 credits=processing_data)
+                                 credits=processing_result)
         message_text = (
             f"Por favor, confirma los siguiente datos para culminar el proceso.\n\n"
             f"<b>N° Factura:</b> {processing_data["id_invoice"]}\n"

@@ -3,11 +3,18 @@ from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from supabase.client import ClientOptions
+from datetime import datetime
+import pytz
+from functions.invoice import generate_datetime
 
 dotenv_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_anon_key = os.getenv("SUPABASE_ANON_KEY")
+
+
+tz = pytz.timezone('America/Lima')
+local_time = datetime.now(tz)
 
 
 def create_supabase_client() -> Client:
@@ -30,8 +37,6 @@ def verify_user(user_phone: str) -> str:
         .eq("user_phone", user_phone)
         .execute()
     )
-    print("response user", response)
-    print("response.user", response.data)
     if response.data:
         return response.data[0]["user_id"]
     else:
@@ -40,36 +45,37 @@ def verify_user(user_phone: str) -> str:
 
 def insert_invoice_data(
     user_id: str,
-        total: float,
+    total: float,
     invoice_data: dict,
     path_file: str
 ) -> None:
+    date, time = generate_datetime()
     data = {
         "user_id": user_id,
-        "id_invoice": invoice_data["id_invoice"],
-        "payment_date": invoice_data["payment_date"],
-        "date": invoice_data["date"],
-        "time": invoice_data["time"],
-        "payment_method": invoice_data["payment_method"],
-        "currency_type": invoice_data["currency_type"],
-        "category_type": invoice_data["category_type"],
-        "id_seller": invoice_data["seller"]["id_seller"],
-        "name_seller": invoice_data["seller"]["name_seller"],
-        "id_client": invoice_data["client"]["id_client"],
-        "name_client": invoice_data["client"]["name_client"],
-        "address": invoice_data["client"]["address"],
-        "total": total,
-        "recorded_operation": invoice_data["taxes"]["recorded_operation"],
-        "igv": invoice_data["taxes"]["igv"],
-        "isc": invoice_data["taxes"]["isc"],
-        "unaffected": invoice_data["taxes"]["unaffected"],
-        "exonerated": invoice_data["taxes"]["exonerated"],
-        "export": invoice_data["taxes"]["export"],
-        "free": invoice_data["taxes"]["free"],
-        "discount": invoice_data["taxes"]["discount"],
-        "others_charge": invoice_data["taxes"]["others_charge"],
-        "others_taxes": invoice_data["taxes"]["others_taxes"],
-        "path_file": path_file,
+        "id_invoice": invoice_data["id_invoice"] or "",
+        "payment_date": invoice_data["payment_date"] or date,
+        "date": invoice_data["date"] or date,
+        "time": invoice_data["time"] or time,
+        "payment_method": invoice_data["payment_method"] or "",
+        "currency_type": invoice_data["currency_type"] or "",
+        "category_type": invoice_data["category_type"] or "",
+        "id_seller": invoice_data["seller"]["id_seller"] or "",
+        "name_seller": invoice_data["seller"]["name_seller"] or "",
+        "id_client": invoice_data["client"]["id_client"] or "",
+        "name_client": invoice_data["client"]["name_client"] or "",
+        "address": invoice_data["client"]["address"] or "",
+        "total": total or 0,
+        "recorded_operation": invoice_data["taxes"]["recorded_operation"] or 0,
+        "igv": invoice_data["taxes"]["igv"] or 0,
+        "isc": invoice_data["taxes"]["isc"] or 0,
+        "unaffected": invoice_data["taxes"]["unaffected"] or 0,
+        "exonerated": invoice_data["taxes"]["exonerated"] or 0,
+        "export": invoice_data["taxes"]["export"] or 0,
+        "free": invoice_data["taxes"]["free"] or 0,
+        "discount": invoice_data["taxes"]["discount"] or 0,
+        "others_charge": invoice_data["taxes"]["others_charge"] or 0,
+        "others_taxes": invoice_data["taxes"]["others_taxes"] or 0,
+        "path_file": f"{supabase_url}/storage/v1/object/{path_file}" or "",
     }
     supabase = create_supabase_client()
     response = (
@@ -77,8 +83,6 @@ def insert_invoice_data(
         .insert(data)
         .execute()
     )
-    print("response", response)
-    print("response.data", response.data)
     if response.data:
         return response.data
     else:
@@ -103,8 +107,6 @@ def insert_invoice_detail_data(
         .insert(data)
         .execute()
     )
-    print("response detail", response)
-    print("response.detail", response.data)
     if response.data:
         return response.data
     else:
@@ -127,15 +129,13 @@ def insert_user_credits_data(
         .insert(data)
         .execute()
     )
-    print("response credits", response)
-    print("response.credits", response.data)
     if response.data:
         return response.data
     else:
         return None
 
 
-def upload_file(file_path: str) -> None:
+def upload_file(file_path: str, user_id: str) -> None:
     supabase = create_supabase_client()
     with open(file_path, "rb") as file:
         response = (
@@ -143,12 +143,11 @@ def upload_file(file_path: str) -> None:
             .from_("invoices")
             .upload(
                 file=file,
-                path=f"public/invoices/{file_path}",
-                file_options={"cache-control": "3600", "upsert": "false"}
+                path=f"public/{user_id}-{local_time.strftime("%Y%m%d%H%M%S%f")}.jpg",
+                file_options={"cache-control": "3600",
+                              "upsert": "false", "content-type": "image/jpg"}
             )
         )
-        print("response upload", response)
-        print("response.upload", response.full_path)
         if response.fullPath:
             return response.fullPath
         else:
