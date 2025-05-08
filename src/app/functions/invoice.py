@@ -3,17 +3,23 @@ from pathlib import Path
 from dotenv import load_dotenv
 import json
 from google import genai
+from datetime import datetime
+import pytz
 
 dotenv_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 gemini_api_key = os.getenv("GEMINI_API_KEY")
+
+tz = pytz.timezone('America/Lima')
+local_time = datetime.now(tz)
 
 
 def invoice_processing(path_file):
     prompt = (
         """
         instrucciones: Tú eres el asistente administrativo de una empresa y te solicitan extraer la información relevante de la imagen 
-        de la boleta o factura y debes retornar solo el objeto JSON con la siguiente estructura:
+        de la boleta o factura, interpolar la categoria a la cual pertenece la factura según el tipo de factura que se especifica
+        en las indicaciones del formato de salida y debes retornar solo el objeto JSON con la siguiente estructura:
         formato_de_salida: {
             "tipo": "JSON",
             "data": {
@@ -22,6 +28,9 @@ def invoice_processing(path_file):
                 "time": time -> Formato HH:MM:SS de la fecha de Emisión de la boleta y/o factura,
                 "payment_date": string -> Formato YYYY-MM-DD de la fecha de pago de la boleta y/o factura,
                 "currency_type": string -> Tipo de moneda utilizada en la boleta y/o factura,
+                "category_type": string -> Tipo de factura puede ser 'ALIMENTACIÓN', 'TRANSPORTE',
+                'SERVICIOS BÁSICOS', 'SALUD', 'EDUCACIÓN', 'TECNOLOGÍA', 'ENTRETENIMIENTO', 'HOGAR Y OFICINA'
+                u 'OTROS',
                 "payment_method": string -> Formato de pago utilizado en la boleta y/o factura,
                 "seller": {
                     "id_seller": string -> Identificación del vendedor como RUC o DNI,
@@ -121,6 +130,12 @@ def normalize_data(data):
 def sum_all_taxes(data):
     total = 0
     for index, value in data.items():
-        if index != "recorded_operation" and value != "":
+        if index != "recorded_operation" and value is not None:
             total += value
     return total
+
+
+def generate_datetime():
+    date = local_time.strftime("%Y-%m-%d")
+    time = local_time.strftime("%H:%M:%S")
+    return date, time
