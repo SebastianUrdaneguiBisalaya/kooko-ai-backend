@@ -149,6 +149,6 @@ def upload_file(file_path: str, user_id: str) -> None:
             )
         )
         if response.fullPath:
-            return response.fullPath
+            return response.path
         else:
             return None
