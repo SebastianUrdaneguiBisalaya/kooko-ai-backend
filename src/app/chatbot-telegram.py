@@ -33,52 +33,41 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-WAITING_FOR_IMAGE = 1
 
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    user_id = user.id
-    user_first_name = user.first_name
-    user_last_name = user.last_name
     inline_keyboard = [
-        [
-            InlineKeyboardButton("¿Qué es kooko.ai? 🤔",
-                                 callback_data="definition")
-        ],
-        [
-            InlineKeyboardButton("¿Cómo funciona? 🤔",
-                                 callback_data="how-it-works"),
-        ],
-        [
-            InlineKeyboardButton("¡Quiero registrarme! 🚀",
-                                 callback_data="want-to-register"),
-        ],
-        [
-            InlineKeyboardButton("Subir boleta y/o factura 📋",
-                                 callback_data="upload-invoice"),
-        ],
+        [InlineKeyboardButton("¿Qué es kooko.ai? 🤔",
+                              callback_data="definition")],
+        [InlineKeyboardButton("¿Cómo funciona? 🤔",
+                              callback_data="how-it-works")],
+        [InlineKeyboardButton("¡Quiero registrarme! 🚀",
+                              callback_data="want-to-register")],
+        [InlineKeyboardButton("Subir boleta y/o factura 📋",
+                              callback_data="upload-invoice")],
     ]
-    reply_markup = InlineKeyboardMarkup(
-        inline_keyboard
-    )
+    reply_markup = InlineKeyboardMarkup(inline_keyboard)
     await update.message.reply_html(
-        f"¡Hola {user_first_name}!\nPor favor, elige una opción:",
+        f"¡Hola {user.first_name}!\nPor favor, elige una opción:",
         reply_markup=reply_markup,
         reply_to_message_id=update.message.message_id,
     )
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_input = update.message.text
-    phone_match = re.fullmatch(r'\+?\d{9,15}', user_input.strip())
-    if phone_match:
-        context.user_data["user_phone"] = user_input.strip()
-        await update.message.reply_text("✅ ¡Gracias! Tu número ha sido registrado correctamente. Ahora puedes subir una imagen.")
+    user_input = update.message.text.strip().lower()
+    if context.user_data.get("waiting_for_phone"):
+        phone_match = re.fullmatch(r'\+?\d{9,15}', user_input)
+        if phone_match:
+            context.user_data["user_phone"] = user_input
+            del context.user_data["waiting_for_phone"]
+            await update.message.reply_text("✅ ¡Gracias! Tu número ha sido registrado correctamente. Ahora puedes subir una imagen.")
+        else:
+            await update.message.reply_text("⚠️ El número ingresado no es válido. Debes enviar con el prefijo de tu país, por ejemplo, +51 para Perú.")
         return
-    else:
-        await update.message.reply_text("⚠️ El número ingresado no es válido. Debes enviar con el prefijo de tu país, por ejemplo, +51 para Perú.")
-    await start(update, context)
+    if user_input in ["hola"]:
+        await show_main_menu(update, context)
+        return
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -112,6 +101,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if "waiting_for" in context.user_data:
             context.user_data.clear()
     elif query.data == "want-to-register":
+        context.user_data["waiting_for_phone"] = True
         await query.message.reply_text("👨🏻‍💻 Solo requiero que me envíes el número de celular que estás utilizando en este chat con el prefijo de tu país. Por ejemplo, +51987535574 para Perú.")
 
 
@@ -199,12 +189,9 @@ async def receive_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 def main() -> None:
     application = Application.builder().token(TELEGRAM_API_KEY).build()
-    application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND, handle_text))
     application.add_handler(CallbackQueryHandler(button))
-    application.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND, start))
     application.add_handler(MessageHandler(filters.PHOTO, receive_image))
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
